@@ -159,7 +159,7 @@ void c16to32(const void *p)
     puts("32-bit extension as signed (short -> int):");
     print32(&s32);
     putchar('\n');
-[12.03.2026 14:20] Даня(мелкий): puts("32-bit extension as unsigned (unsigned short -> unsigned int):");
+puts("32-bit extension as unsigned (unsigned short -> unsigned int):");
     print32(&u32);
     putchar('\n');
 }
@@ -303,7 +303,7 @@ int main()
     puts("platform only.");
 
     puts("");
-[12.03.2026 14:20] Даня(мелкий): // -------------------------------------------------
+// -------------------------------------------------
     // Л2.2
     // -------------------------------------------------
     puts("==================================================");
@@ -393,7 +393,7 @@ int main()
     puts("3) Can every 32-bit or 64-bit sequence be interpreted as float/double?");
     puts("   Yes. Every such bit sequence can be interpreted as a float/double value.");
     puts("   But the result is not always a number: there are +infinity, -infinity and NaN.");
-[12.03.2026 14:20] Даня(мелкий): puts("");
+puts("");
     puts("4) Which set of numeric values is larger?");
     puts("   Numeric 32-bit integer values are more numerous than numeric float values.");
     puts("   Numeric 64-bit integer values are more numerous than numeric double values.");
@@ -568,7 +568,7 @@ int main()
     printf("%-18s", "-0");
     print32(&minus_zero_bits);
     putchar('\n');
-[12.03.2026 14:20] Даня(мелкий): printf("%-18s", "min denorm +");
+printf("%-18s", "min denorm +");
     print32(&min_denorm_bits);
     putchar('\n');
 
