@@ -1,4 +1,4 @@
-[12.03.2026 14:22] Даня(мелкий): #include <stdio.h>   // printf, puts, putchar
+#include <stdio.h>   // printf, puts, putchar
 #include <stddef.h>  // size_t, ptrdiff_t
 #include <wchar.h>   // wchar_t
 #include <climits>   // CHAR_MIN, INT_MAX и т.д.
@@ -910,4 +910,3 @@ int main()
     // Успешное завершение программы
     return 0;
 }
-`
