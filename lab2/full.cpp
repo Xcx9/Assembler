@@ -1,421 +1,278 @@
-#include <stdio.h>      // printf, scanf, puts, snprintf, getchar, putchar
-#include <stddef.h>     // size_t, ptrdiff_t
-#include <wchar.h>      // wchar_t
-#include <type_traits>  // make_unsigned, make_signed
+[12.03.2026 14:20] Даня(мелкий): `
+#include <stdio.h>
+#include <stddef.h>
+#include <wchar.h>
+#include <climits>
+#include <cfloat>
+#include <string.h>
 
-// Именованная константа длины массивов.
-// Это важно, потому что в условии есть штраф,
-// если вместо именованной константы используется литерал 5.
-static const size_t N = 5;
+#define SHOW_SIZE(T) printf("%-22s : %2zu byte(s)\n", #T, (size_t)sizeof(T))
 
-// Индекс элемента для задания №4.
-// По условию нужно менять именно M[i], где i = 2.
-static const size_t I = 2;
-
-// Число строк матрицы для задания №5.
-// Выбрано 2, потому что в условии нужно вывести адреса
-// MM[0][0], MM[0][1], MM[1][0], MM[1][1].
-static const size_t R = 2;
-
-/* =========================================================
-   ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-   ========================================================= */
-
-// Функция очищает остаток текущей строки во входном потоке.
-// Нужна после scanf, чтобы убрать '\n' и возможный лишний ввод.
-static void clear_stdin_line()
-{
-    int c;  // getchar() возвращает int, а не char
-
-    // Читаем символы, пока не встретим перевод строки или конец файла.
-    do {
-        c = getchar();
-    } while (c != '\n' && c != EOF);
-}
-
-// Шаблонная функция печати одного значения в двоичном виде.
-// Используется для целочисленных массивов в задании №3 и №4.
+// =========================
+// Безопасное чтение объекта из памяти
+// =========================
 template <typename T>
-static void print_binary_value(T v)
+T readValue(const void *p)
 {
-    // Количество бит = 8 * sizeof(T)
-    const size_t bits = 8u * sizeof(T);
-
-    // Преобразуем значение к беззнаковому типу такого же размера,
-    // затем к unsigned long long, чтобы удобно работать с битами.
-    unsigned long long u =
-        (unsigned long long)(typename std::make_unsigned<T>::type)v;
-
-    // Буфер под строку из 0 и 1.
-    // Максимум нам нужно 64 символа + '\0'.
-    char s[65];
-
-    // Счётчик символов.
-    size_t i = 0;
-
-    // Проходим по битам от старшего к младшему.
-    for (; i < bits && i < sizeof(s) - 1; ++i) {
-        size_t shift = (bits - 1u) - i;             // сколько сдвинуть вправо
-        s[i] = ((u >> shift) & 1ULL) ? '1' : '0';   // получаем один бит
-    }
-
-    // Завершаем строку.
-    s[i] = '\0';
-
-    // Печатаем двоичную строку.
-    printf("%s", s);
+    T value;
+    memcpy(&value, p, sizeof(T));
+    return value;
 }
 
-// Отдельная функция печати unsigned long long в двоичном виде.
-// Используется в задании №6 для массива Mq.
-static void print_binary_ull(unsigned long long v)
-{
-    const size_t bits = 8u * sizeof(unsigned long long);
+// =========================
+// Общие функции
+// =========================
 
-    for (size_t i = 0; i < bits; ++i) {
-        size_t shift = (bits - 1u) - i;
-        putchar(((v >> shift) & 1ULL) ? '1' : '0');
+void print16(const void *p)
+{
+    unsigned short ux = readValue<unsigned short>(p);
+    short sx = readValue<short>(p);
+
+    printf("%04hX ", ux);
+
+    for (int i = 15; i >= 0; --i) {
+        putchar((ux & (1u << i)) ? '1' : '0');
     }
+
+    printf(" %5hu %+6hd", ux, sx);
 }
 
-// Печать массива в HEX-формате с ведущими нулями.
-// name - имя массива для подписи
-// a    - указатель на массив
-// n    - длина массива
-// mod  - модификатор размера: "hh", "h", "", "ll"
-template <typename T>
-static void print_array_hex(const char* name, const T* a, size_t n, const char* mod)
+void print32(const void *p)
 {
-    // Ширина поля в hex-цифрах: 2 цифры на 1 байт.
-    const int w = (int)(2u * sizeof(T));
+    unsigned ux = readValue<unsigned>(p);
+    int sx = readValue<int>(p);
+    float fx = readValue<float>(p);
 
-    // Буфер для строки формата printf.
-    char fmt[32];
+    printf("%08X ", ux);
 
-    // Если модификатор пустой, например для unsigned int,
-    // делаем формат вида %08X.
-    if (mod[0] == '\0')
-        snprintf(fmt, sizeof(fmt), "%%0%dX", w);
-    else
-        // Иначе, например, %04hX или %016llX.
-        snprintf(fmt, sizeof(fmt), "%%0%d%sX", w, mod);
-
-    // Печатаем подпись.
-    printf("%s (HEX X): ", name);
-
-    // Печатаем все элементы массива.
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");  // между элементами пробел
-
-        // Для маленьких типов передаём unsigned int,
-        // для 64-битных — unsigned long long.
-        if constexpr (sizeof(T) <= sizeof(unsigned int))
-            printf(fmt, (unsigned int)a[i]);
-        else
-            printf(fmt, (unsigned long long)a[i]);
+    for (int i = 31; i >= 0; --i) {
+        putchar((ux & (1u << i)) ? '1' : '0');
     }
 
-    printf("\n");
+    printf(" %10u %+11d %+.2A %+.2e %+.2f", ux, sx, fx, fx, fx);
 }
 
-// Печать массива в двоичном виде.
-template <typename T>
-static void print_array_bin(const char* name, const T* a, size_t n)
+void print64(const void *p)
 {
-    printf("%s (BIN b): ", name);
+    unsigned long long ux = readValue<unsigned long long>(p);
+    long long sx = readValue<long long>(p);
+    double dx = readValue<double>(p);
 
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        print_binary_value(a[i]);
+    printf("%016llX ", ux);
+
+    for (int i = 63; i >= 0; --i) {
+        putchar((ux & (1ULL << i)) ? '1' : '0');
     }
+    putchar('\n');
 
-    printf("\n");
+    printf("                 %20llu %+21lld %+20.2A %+20.2e %+20.2f",
+           ux, sx, dx, dx, dx);
 }
 
-
-// Печать массива как unsigned decimal.
-template <typename T>
-static void print_array_unsigned(const char* name, const T* a, size_t n, const char* mod)
+void printDump(const void *p, size_t N)
 {
-    char fmt[16];
+    const unsigned char *p1 = (const unsigned char *)p;
 
-    // Строим формат:
-    // %u, %hu, %hhu, %llu ...
-    if (mod[0] == '\0')
-        snprintf(fmt, sizeof(fmt), "%%u");
-    else
-        snprintf(fmt, sizeof(fmt), "%%%su", mod);
-
-    printf("%s (DEC u): ", name);
-
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-
-        if constexpr (sizeof(T) <= sizeof(unsigned int))
-            printf(fmt, (unsigned int)a[i]);
-        else
-            printf(fmt, (unsigned long long)a[i]);
-    }
-
-    printf("\n");
-}
-
-// Печать массива как signed decimal со знаком '+' у положительных чисел.
-template <typename T>
-static void print_array_signed_plus(const char* name, const T* a, size_t n, const char* mod)
-{
-    // S — знаковая версия типа T.
-    using S = typename std::make_signed<T>::type;
-
-    char fmt[16];
-
-    // Строим формат:
-    // %+d, %+hd, %+hhd, %+lld ...
-    if (mod[0] == '\0')
-        snprintf(fmt, sizeof(fmt), "%%+d");
-    else
-        snprintf(fmt, sizeof(fmt), "%%+%sd", mod);
-
-    printf("%s (DEC d with +): ", name);
-
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-
-        // Интерпретируем тот же набор бит как signed-тип.
-        S sv = (S)a[i];
-
-        if constexpr (sizeof(T) <= sizeof(int))
-            printf(fmt, (int)sv);
-        else
-            printf(fmt, (long long)sv);
-    }
-
-    printf("\n");
-}
-
-// Печать массива Mb в символьном виде (%c).
-// Нужна для задания №3.
-static void print_array_chars(const char* name, const unsigned char* a, size_t n)
-{
-    printf("%s (CHAR c): ", name);
-
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%c", (int)a[i]);
-    }
-
-    printf("\n");
-}
-
-// Демонстрация ширины поля и флага '-'.
-// Используется в задании №3.
-static void width_demo_unsigned_short(const unsigned short* a, size_t n)
-{
-    const int w = 10;  // заведомо больше обычной длины числа
-
-    puts("\n--- Width demo for Ms with format %hu ---");
-    puts("w <= w0 : looks the same.");
-    puts("w >  w0 : padded with spaces (right-aligned).");
-    puts("with '-' : left-aligned.");
-
-    // По умолчанию выравнивание вправо.
-    printf("Ms right aligned: ");
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%10hu", a[i]);
-    }
-    printf("\n");
-
-    // С флагом '-' выравнивание влево.
-    printf("Ms left  aligned: ");
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%-10hu", a[i]);
-    }
-    printf("\n");
-}
-
-// Печать массива float в форматах A, e, f.
-static void print_float_array_forms(const char* name, const float* a, size_t n)
-{
-    printf("%s (HEX exp A): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%A", a[i]);
-    }
-    printf("\n");
-
-    printf("%s (DEC exp e): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%e", a[i]);
-    }
-    printf("\n");
-
-    printf("%s (DEC f): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%f", a[i]);
-    }
-    printf("\n");
-}
-
-// Печать массива double в форматах A, e, f с обычной точностью.
-static void print_double_array_forms_default(const char* name, const double* a, size_t n)
-{
-    printf("%s (HEX exp A): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%A", a[i]);
-    }
-    printf("\n");
-
-    printf("%s (DEC exp e): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%e", a[i]);
-    }
-    printf("\n");
-
-    printf("%s (DEC f): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%f", a[i]);
-    }
-    printf("\n");
-}
-
-// Печать массива double в форматах A, e, f с точностью .2.
-// Это выполняет отдельное требование задания №3.
-static void print_double_array_forms_prec2(const char* name, const double* a, size_t n)
-{
-    puts("\n--- Precision demo (.2) for Mfl (A/e/f) ---");
-
-
-    printf("%s (HEX exp A, .2): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%.2A", a[i]);
-    }
-    printf("\n");
-
-    printf("%s (DEC exp e, .2): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%.2e", a[i]);
-    }
-    printf("\n");
-
-    printf("%s (DEC f, .2): ", name);
-    for (size_t i = 0; i < n; ++i) {
-        if (i) printf(" ");
-        printf("%.2f", a[i]);
-    }
-    printf("\n");
-
-    puts("Precision .2 changes digits after decimal point (rounding).");
-}
-
-/* =========================================================
-   ГРУППИРОВКА ВЫВОДА ДЛЯ ЗАДАНИЯ №4
-   ========================================================= */
-
-// Печать Mb во всех нужных форматах.
-static void print_int_all_formats_Mb(const unsigned char* a)
-{
-    print_array_hex("Mb", a, N, "hh");
-    print_array_bin("Mb", a, N);
-    print_array_unsigned("Mb", a, N, "hh");
-    print_array_signed_plus("Mb", a, N, "hh");
-    print_array_chars("Mb", a, N);
-}
-
-// Печать Ms во всех нужных форматах.
-static void print_int_all_formats_Ms(const unsigned short* a)
-{
-    print_array_hex("Ms", a, N, "h");
-    print_array_bin("Ms", a, N);
-    print_array_unsigned("Ms", a, N, "h");
-    print_array_signed_plus("Ms", a, N, "h");
-}
-
-// Печать Ml во всех нужных форматах.
-static void print_int_all_formats_Ml(const unsigned int* a)
-{
-    print_array_hex("Ml", a, N, "");
-    print_array_bin("Ml", a, N);
-    print_array_unsigned("Ml", a, N, "");
-    print_array_signed_plus("Ml", a, N, "");
-}
-
-// Печать Mq во всех нужных форматах.
-static void print_int_all_formats_Mq(const unsigned long long* a)
-{
-    print_array_hex("Mq", a, N, "ll");
-    print_array_bin("Mq", a, N);
-    print_array_unsigned("Mq", a, N, "ll");
-    print_array_signed_plus("Mq", a, N, "ll");
-}
-
-// Отдельная функция вывода Mq для задания №6.
-static void print_Mq_all(const unsigned long long* a)
-{
-    puts("Mq (HEX X, with leading zeros):");
     for (size_t i = 0; i < N; ++i) {
-        if (i) printf(" ");
-        printf("%016llX", a[i]);  // 16 hex-цифр для 8 байт
+        if (i) putchar(' ');
+        printf("%02hhX", p1[i]);
     }
-    printf("\n");
-
-    puts("Mq (BIN b, with leading zeros):");
-    for (size_t i = 0; i < N; ++i) {
-        if (i) printf(" ");
-        print_binary_ull(a[i]);
-    }
-    printf("\n");
-
-    puts("Mq (DEC u):");
-    for (size_t i = 0; i < N; ++i) {
-        if (i) printf(" ");
-        printf("%llu", a[i]);
-    }
-    printf("\n");
-
-    puts("Mq (DEC d with +):");
-    for (size_t i = 0; i < N; ++i) {
-        if (i) printf(" ");
-        printf("%+lld", (long long)a[i]);
-    }
-    printf("\n");
+    putchar('\n');
 }
 
-/* =========================================================
-   ЗАДАНИЕ №1
-   ========================================================= */
+// =========================
+// Л2.2
+// =========================
 
-static void task1()
+void viewPointer(void *p)
 {
-    // Один вызов puts().
-    // Внутри строки есть \n, поэтому группа, номер работы и состав
-    // выводятся на разных строках.
-    puts("Gruppa: 8\n"
-         "Laboratornaya rabota №1\n"
-         "Sostav komandy:\n"
-         "Ivanov I.I.\n"
-         "Petrov P.P.");
+    char *p1 = (char *)p;
+    unsigned short *p2 = (unsigned short *)p;
+    double *p3 = (double *)p;
+
+    printf("p  = %p\n", p);
+    printf("p1 = %p\n", (void *)p1);
+    printf("p2 = %p\n", (void *)p2);
+    printf("p3 = %p\n", (void *)p3);
+
+    printf("p1 + 1 = %p\n", (void *)(p1 + 1));
+    printf("p2 + 1 = %p\n", (void *)(p2 + 1));
+    printf("p3 + 1 = %p\n", (void *)(p3 + 1));
+
+    printf("diff(p1, p1+1) = %td byte(s), sizeof(char) = %zu\n",
+           (ptrdiff_t)((char *)(p1 + 1) - (char *)p1), sizeof(char));
+
+    printf("diff(p2, p2+1) = %td byte(s), sizeof(unsigned short) = %zu\n",
+           (ptrdiff_t)((char *)(p2 + 1) - (char *)p2), sizeof(unsigned short));
+
+    printf("diff(p3, p3+1) = %td byte(s), sizeof(double) = %zu\n",
+           (ptrdiff_t)((char *)(p3 + 1) - (char *)p3), sizeof(double));
+
+#if defined(GNUC) && !defined(STRICT_ANSI)
+    void *pv1 = p + 1;
+    printf("p + 1  = %p\n", pv1);
+    printf("diff(p, p+1) = %td byte(s)\n",
+           (ptrdiff_t)((char *)pv1 - (char *)p));
+#else
+    puts("p + 1 for void* is not available under current compiler settings.");
+#endif
 }
 
-/* =========================================================
-   ЗАДАНИЕ №2
-   ========================================================= */
-
-static void task2()
+void printPointer(const void *p)
 {
-    puts("=== sizeof() for required types ===");
+    const unsigned char *bytes = (const unsigned char *)p;
 
-    // Макрос печатает имя типа и его размер в байтах.
-    // Это даёт бонус: каждое имя типа в коде встречается один раз.
-#define SHOW_SIZE(T)  printf("%-22s : %zu byte(s)\n", #T, (size_t)sizeof(T))
+    unsigned char b0 = readValue<unsigned char>(bytes);
+    unsigned char b1 = readValue<unsigned char>(bytes + 1);
+
+    unsigned short s0 = readValue<unsigned short>(bytes);
+    unsigned short s1 = readValue<unsigned short>(bytes + sizeof(unsigned short));
+
+    double d0 = readValue<double>(bytes);
+    double d1 = readValue<double>(bytes + sizeof(double));
+
+    printf("*p1       = 0x%02X\n", b0);
+    printf("*(p1 + 1) = 0x%02X\n", b1);
+
+    printf("*p2       = 0x%04hX\n", s0);
+    printf("*(p2 + 1) = 0x%04hX\n", s1);
+
+    printf("*p3       = %A\n", d0);
+    printf("*(p3 + 1) = %A\n", d1);
+}
+
+// =========================
+// Л2.8
+// =========================
+
+void c16to32(const void *p)
+{
+    short s16 = readValue<short>(p);
+    unsigned short u16 = readValue<unsigned short>(p);
+
+    int s32 = (int)s16;
+    unsigned u32 = (unsigned)u16;
+
+    puts("16-bit source:");
+    print16(p);
+    putchar('\n');
+
+    puts("32-bit extension as signed (short -> int):");
+    print32(&s32);
+    putchar('\n');
+[12.03.2026 14:20] Даня(мелкий): puts("32-bit extension as unsigned (unsigned short -> unsigned int):");
+    print32(&u32);
+    putchar('\n');
+}
+
+// =========================
+// Л2.9
+// =========================
+
+void ab16(const void *p)
+{
+    unsigned short ux = readValue<unsigned short>(p);
+    short sx = readValue<short>(p);
+
+    puts("x:");
+    print16(p);
+    putchar('\n');
+
+    // a1 / b1
+    {
+        unsigned short a = (unsigned short)(ux * (unsigned short)2);
+        unsigned short b = (unsigned short)(ux << 1);
+
+        puts("a1(x): unsigned multiply by 2    | b1(x): unsigned shift left by 1");
+        print16(&a);
+        printf("    |    ");
+        print16(&b);
+        putchar('\n');
+    }
+
+    // a2 / b2
+    {
+        short a = (short)(sx * (short)2);
+
+        // Безопасная версия: сдвиг выполняем над беззнаковой копией битов
+        // и затем интерпретируем результат как short
+        unsigned short temp = (unsigned short)sx;
+        unsigned short shifted = (unsigned short)(temp << 1);
+        short b = readValue<short>(&shifted);
+
+        puts("a2(x): signed multiply by 2      | b2(x): bit pattern after left shift by 1");
+        print16(&a);
+        printf("    |    ");
+        print16(&b);
+        putchar('\n');
+    }
+
+    // a3 / b3
+    {
+        unsigned short a = (unsigned short)(ux / (unsigned short)2);
+        unsigned short b = (unsigned short)(ux >> 1);
+
+        puts("a3(x): unsigned divide by 2      | b3(x): unsigned shift right by 1");
+        print16(&a);
+        printf("    |    ");
+        print16(&b);
+        putchar('\n');
+    }
+
+    // a4 / b4
+    {
+        short a = (short)(sx / (short)2);
+
+        // Для учебной демонстрации арифметического сдвига вправо
+        // сначала расширяем до int, потом сдвигаем
+        int temp = (int)sx;
+        int shifted = temp >> 1;
+        short b = (short)shifted;
+
+        puts("a4(x): signed divide by 2        | b4(x): signed shift right by 1");
+        print16(&a);
+        printf("    |    ");
+        print16(&b);
+        putchar('\n');
+    }
+
+    // a5 / b5
+    {
+        unsigned short a = (unsigned short)(ux % (unsigned short)16);
+        unsigned short b = (unsigned short)(ux & (unsigned short)15);
+
+        puts("a5(x): unsigned remainder /16    | b5(x): x & 15");
+        print16(&a);
+        printf("    |    ");
+        print16(&b);
+        putchar('\n');
+    }
+
+    // a6 / b6
+    {
+        unsigned short a = (unsigned short)((ux / (unsigned short)16) * (unsigned short)16);
+        unsigned short b = (unsigned short)(ux & (unsigned short)-16);
+
+        puts("a6(x): floor to multiple of 16   | b6(x): x & -16");
+        print16(&a);
+        printf("    |    ");
+        print16(&b);
+        putchar('\n');
+    }
+}
+
+// =========================
+// main
+// =========================
+
+int main()
+{
+    // -------------------------------------------------
+    // Л2.1
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.1 - Sizes of standard C/C++ types");
+    puts("==================================================");
 
     SHOW_SIZE(void*);
     SHOW_SIZE(char);
@@ -441,411 +298,435 @@ static void task2()
     SHOW_SIZE(size_t);
     SHOW_SIZE(ptrdiff_t);
 
-#undef SHOW_SIZE
-}
-
-
-/* =========================================================
-   ЗАДАНИЕ №3
-   ========================================================= */
-
-static void task3()
-{
-    // Исходные значения x для массивов.
-    const unsigned char xb = 0xA7;
-    const unsigned short xs = 0xC0DE;
-    const unsigned int xl = 0xDEADBEEFu;
-    const unsigned long long xq = 0x000D15A550C1A7EDULL;
-    const float xfs = -3.0f / 7.0f;
-    const double xfl = -3.0 / 7.0;
-
-    // Создание шести массивов длины N = 5.
-    unsigned char Mb[N] = { xb, xb, xb, xb, xb };
-    unsigned short Ms[N] = { xs, xs, xs, xs, xs };
-    unsigned int Ml[N] = { xl, xl, xl, xl, xl };
-    unsigned long long Mq[N] = { xq, xq, xq, xq, xq };
-    float Mfs[N] = { xfs, xfs, xfs, xfs, xfs };
-    double Mfl[N] = { xfl, xfl, xfl, xfl, xfl };
-
-    puts("=== Integer arrays (each printed 4 times: X, b, u, d) ===");
-
-    // Mb
-    print_array_hex("Mb", Mb, N, "hh");
-    print_array_bin("Mb", Mb, N);
-    print_array_unsigned("Mb", Mb, N, "hh");
-    print_array_signed_plus("Mb", Mb, N, "hh");
-
-    // Ms
-    print_array_hex("Ms", Ms, N, "h");
-    print_array_bin("Ms", Ms, N);
-    print_array_unsigned("Ms", Ms, N, "h");
-    print_array_signed_plus("Ms", Ms, N, "h");
-
-    // Ml
-    print_array_hex("Ml", Ml, N, "");
-    print_array_bin("Ml", Ml, N);
-    print_array_unsigned("Ml", Ml, N, "");
-    print_array_signed_plus("Ml", Ml, N, "");
-
-    // Mq
-    print_array_hex("Mq", Mq, N, "ll");
-    print_array_bin("Mq", Mq, N);
-    print_array_unsigned("Mq", Mq, N, "ll");
-    print_array_signed_plus("Mq", Mq, N, "ll");
-
-    // Mb дополнительно как символы.
-    puts("\n=== Mb printed 5th time as characters (%c) ===");
-    print_array_chars("Mb", Mb, N);
-
-    // Демонстрация ширины поля и флага '-'.
-    width_demo_unsigned_short(Ms, N);
-
-    puts("\n=== Floating point arrays (each printed 3 times: A, e, f) ===");
-
-    // Mfs
-    print_float_array_forms("Mfs", Mfs, N);
-
-    // Mfl с обычной точностью
-    puts("\nMfl default:");
-    print_double_array_forms_default("Mfl", Mfl, N);
-
-    // Mfl с точностью .2
-    print_double_array_forms_prec2("Mfl", Mfl, N);
-
-    // Пояснение про отсутствие %b в MinGW.
-    puts("\nNote: Binary output is manual because %b is often not supported by MinGW printf.");
-}
-
-/* =========================================================
-   ЗАДАНИЕ №4
-   ========================================================= */
-
-static void task4()
-{
-    // Те же исходные значения, что и в задании №3.
-    const unsigned char xb = 0xA7;
-    const unsigned short xs = 0xC0DE;
-    const unsigned int xl = 0xDEADBEEFu;
-    const unsigned long long xq = 0x000D15A550C1A7EDULL;
-    const float xfs = -3.0f / 7.0f;
-    const double xfl = -3.0 / 7.0;
-
-    // Исходные массивы.
-    unsigned char Mb[N] = { xb, xb, xb, xb, xb };
-    unsigned short Ms[N] = { xs, xs, xs, xs, xs };
-    unsigned int Ml[N] = { xl, xl, xl, xl, xl };
-    unsigned long long Mq[N] = { xq, xq, xq, xq, xq };
-    float Mfs[N] = { xfs, xfs, xfs, xfs, xfs };
-    double Mfl[N] = { xfl, xfl, xfl, xfl, xfl };
-
-    // Вывод до ввода.
-    puts("=== BEFORE INPUT ===");
-    print_int_all_formats_Mb(Mb);
-    print_int_all_formats_Ms(Ms);
-    print_int_all_formats_Ml(Ml);
-    print_int_all_formats_Mq(Mq);
-    print_float_array_forms("Mfs", Mfs, N);
-    print_double_array_forms_default("Mfl", Mfl, N);
-    print_double_array_forms_prec2("Mfl", Mfl, N);
-    width_demo_unsigned_short(Ms, N);
-
-    puts("\n=== INPUT NEW VALUES INTO M[i], i=2 (NO TEMP VARIABLES) ===");
-
-    // Ввод нового значения прямо в Mb[2].
-    printf("Enter new HEX value for Mb[2] (no 0x): ");
-    if (scanf("%hhx", &Mb[I]) != 1) {
-        puts("Input error for Mb[2].");
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-    }
-
-    // Ввод нового значения прямо в Ms[2].
-    printf("Enter new HEX value for Ms[2] (no 0x): ");
-    if (scanf("%hx", &Ms[I]) != 1) {
-        puts("Input error for Ms[2].");
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-    }
-
-
-    // Ввод нового значения прямо в Ml[2].
-    printf("Enter new HEX value for Ml[2] (no 0x): ");
-    if (scanf("%x", &Ml[I]) != 1) {
-        puts("Input error for Ml[2].");
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-    }
-
-    // Ввод нового значения прямо в Mq[2].
-    printf("Enter new HEX value for Mq[2] (no 0x): ");
-    if (scanf("%llx", &Mq[I]) != 1) {
-        puts("Input error for Mq[2].");
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-    }
-
-    // Ввод нового значения прямо в Mfs[2].
-    printf("Enter new value for Mfs[2] (float): ");
-    if (scanf("%f", &Mfs[I]) != 1) {
-        puts("Input error for Mfs[2].");
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-    }
-
-    // Ввод нового значения прямо в Mfl[2].
-    printf("Enter new value for Mfl[2] (double): ");
-    if (scanf("%lf", &Mfl[I]) != 1) {
-        puts("Input error for Mfl[2].");
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-    }
-
-    // Вывод после ввода.
-    puts("\n=== AFTER INPUT ===");
-    print_int_all_formats_Mb(Mb);
-    print_int_all_formats_Ms(Ms);
-    print_int_all_formats_Ml(Ml);
-    print_int_all_formats_Mq(Mq);
-    print_float_array_forms("Mfs", Mfs, N);
-    print_double_array_forms_default("Mfl", Mfl, N);
-    print_double_array_forms_prec2("Mfl", Mfl, N);
-
-    puts("\nNote: Binary output is manual because %b is often not supported by MinGW printf.");
-}
-
-/* =========================================================
-   ЗАДАНИЕ №5
-   ========================================================= */
-
-static void task5()
-{
-    // По варианту используется массив Mq.
-    const unsigned long long xq = 0x000D15A550C1A7EDULL;
-    unsigned long long Mq[N] = { xq, xq, xq, xq, xq };
-
-    puts("=== Addresses for array Mq ===");
-
-    // Адрес начала массива.
-    printf("Mq (start)     = %p\n", (void*)Mq);
-
-    // Адрес первого элемента.
-    printf("&Mq[0]         = %p\n", (void*)&Mq[0]);
-
-    // Адрес второго элемента.
-    printf("&Mq[1]         = %p\n", (void*)&Mq[1]);
-
-    puts("\n=== Compare address differences ===");
-
-    // Размер одного элемента массива.
-    printf("sizeof(Mq[0])  = %zu byte(s)\n", sizeof(Mq[0]));
-
-    // Разности адресов в байтах.
-    ptrdiff_t d0 = (char*)&Mq[0] - (char*)Mq;
-    ptrdiff_t d1 = (char*)&Mq[1] - (char*)&Mq[0];
-
-    printf("&Mq[0] - Mq     = %td byte(s)\n", d0);
-    printf("&Mq[1] - &Mq[0] = %td byte(s)\n", d1);
-
-    puts("\nConclusion: elements of the array are stored consecutively in memory.");
-
-    // Статическая матрица R x N того же типа.
-    unsigned long long MM[R][N] = { {0} };
-
-    puts("\n=== Addresses for matrix MM[R][N] ===");
-
-    // Адреса элементов матрицы.
-    printf("&MM[0][0] = %p\n", (void*)&MM[0][0]);
-    printf("&MM[0][1] = %p\n", (void*)&MM[0][1]);
-    printf("&MM[1][0] = %p\n", (void*)&MM[1][0]);
-    printf("&MM[1][1] = %p\n", (void*)&MM[1][1]);
-
-    puts("\nConclusion: matrix is stored in row-major order (rows are contiguous).");
-
-    // Объяснение динамического воспроизведения той же структуры.
-    puts("\n=== Dynamic reproduction (flat array) ===");
-
-    // Сколько памяти нужно.
-    printf("Memory to allocate: R * N * sizeof(T) = %zu byte(s)\n",
-           (size_t)(R * N * sizeof(unsigned long long)));
-
-    // Формула линейного индекса.
-    puts("Index mapping for flat array M:");
-    puts("idx = i * N + j");
-
-    // Пример вычисления idx.
-    {
-        size_t i = 1;
-        size_t j = 1;
-        size_t idx = i * N + j;
-        printf("Example: i=%zu, j=%zu -> idx=%zu\n", i, j, idx);
-    }
-}
-
-/* =========================================================
-   ЗАДАНИЕ №6
-   ========================================================= */
-
-static void task6()
-{
-    // Исходный массив Mq.
-    const unsigned long long xq = 0x000D15A550C1A7EDULL;
-    unsigned long long Mq[N] = { xq, xq, xq, xq, xq };
-
-    // Копия массива до ввода, чтобы потом посчитать,
-    // сколько элементов реально изменилось.
-    unsigned long long before[N];
-    for (size_t i = 0; i < N; ++i) {
-        before[i] = Mq[i];
-    }
-
-
-    // Вывод до ввода.
-    puts("=== BEFORE INPUT ===");
-    print_Mq_all(Mq);
-
-    puts("\nEnter 5 HEX values for Mq[0..4] (no 0x), separated by spaces:");
-
-    // Один вызов scanf() для всех пяти элементов массива.
-    int k = scanf("%llx %llx %llx %llx %llx",
-                  &Mq[0], &Mq[1], &Mq[2], &Mq[3], &Mq[4]);
-
-    // Проверяем, сколько элементов реально введено.
-    if (k != (int)N) {
-        int entered = (k < 0) ? 0 : k;
-        int not_entered = (int)N - entered;
-
-        printf("Input error: entered %d element(s), not entered %d element(s).\n",
-               entered, not_entered);
-
-        clear_stdin_line();
-    } else {
-        clear_stdin_line();
-        puts("Input OK: all 5 elements were read.");
-    }
-
-    // Вывод после ввода.
-    puts("\n=== AFTER INPUT ===");
-    print_Mq_all(Mq);
-
-    // Считаем, сколько элементов изменилось.
-    {
-        size_t changed = 0;
-
-        for (size_t i = 0; i < N; ++i) {
-            if (Mq[i] != before[i]) {
-                ++changed;
-            }
-        }
-
-        printf("\nChanged elements: %zu of %zu\n", changed, N);
-    }
-}
-
-/* =========================================================
-   ЗАДАНИЕ №7
-   ========================================================= */
-
-static void task7()
-{
-    // Буфер под s1 — обычное слово.
-    char s1[64];
-
-    // Буфер под s2. Размер 16, значит безопасно вводить максимум 15 символов.
-    char s2[16];
-
-    // Буфер под s3 — строка с пробелами.
-    char s3[128];
-
-    // Ввод s1: слово без пробелов.
-    puts("Enter s1 (one word, no spaces):");
-    if (scanf("%s", s1) != 1) {
-        puts("Input error for s1");
-        return;
-    }
-
-    // Ввод s2: слово с ограничением длины, чтобы не переполнить буфер.
-    puts("Enter s2 (one word, max 15 chars):");
-    if (scanf("%15s", s2) != 1) {
-        puts("Input error for s2");
-        return;
-    }
-
-    // Ввод s3: целая строка, может содержать пробелы.
-    // Ведущий пробел в формате пропускает оставшийся '\n'.
-    puts("Enter s3 (a whole line, may contain spaces):");
-    if (scanf(" %127[^\n]", s3) != 1) {
-        puts("Input error for s3");
-        return;
-    }
-
-    // Вывод введённых строк между *** и ***.
-    printf("***%s***\n", s1);
-    printf("***%s***\n", s2);
-    printf("***%s***\n", s3);
-}
-
-/* =========================================================
-   ГЛАВНАЯ ФУНКЦИЯ
-   ========================================================= */
-
-int main()
-{
-    // Номер задания, которое выберет пользователь.
-    int n = 0;
-
-    // Просим ввести номер задания.
-    puts("Enter task number (1-7):");
-
-    // Считываем номер.
-    if (scanf("%d", &n) != 1) {
-        puts("Input error.");
-        return 0;
-    }
-
-    // Убираем перевод строки после ввода числа.
-    clear_stdin_line();
-
-    // Запускаем нужное задание.
-    switch (n) {
-        case 1:
-            task1();
-            break;
-
-        case 2:
-            task2();
-            break;
-
-        case 3:
-            task3();
-            break;
-
-        case 4:
-            task4();
-            break;
-
-        case 5:
-            task5();
-            break;
-
-        case 6:
-            task6();
-            break;
-
-        case 7:
-            task7();
-            break;
-
-        default:
-            puts("No such task.");
-            break;
-    }
-
-    // Завершение программы.
+    puts("");
+    puts("Note: task L2.1 as a full report item should include a comparison table");
+    puts("for several platforms. This program shows measurements for the current");
+    puts("platform only.");
+
+    puts("");
+[12.03.2026 14:20] Даня(мелкий): // -------------------------------------------------
+    // Л2.2
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.2 - Pointer arithmetic and dereferencing");
+    puts("==================================================");
+
+    long long xbuf[2] = { 0x1122334455667788LL, 0LL };
+    char s[] = "0123456789abcdef";
+
+    puts("=== Test 1: long long value 0x1122334455667788 ===");
+    viewPointer(&xbuf[0]);
+    printPointer(&xbuf[0]);
+
+    puts("");
+
+    puts("=== Test 2: char s[] = \"0123456789abcdef\" ===");
+    viewPointer(s);
+    printPointer(s);
+
+    puts("");
+    puts("Can void* be dereferenced directly?");
+    puts("No. In C/C++, *p for void* is not allowed because void has no size.");
+    puts("First you must cast void* to a typed pointer.");
+
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.3
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.3 - Min / Max values and theory");
+    puts("==================================================");
+
+    puts("=== Integer types: min / max ===");
+
+    printf("char                : min = %d, max = %d\n", CHAR_MIN, CHAR_MAX);
+    printf("unsigned char       : min = 0, max = %u\n", UCHAR_MAX);
+
+    printf("short               : min = %d, max = %d\n", SHRT_MIN, SHRT_MAX);
+    printf("unsigned short      : min = 0, max = %u\n", USHRT_MAX);
+
+    printf("int                 : min = %d, max = %d\n", INT_MIN, INT_MAX);
+    printf("unsigned int        : min = 0, max = %u\n", UINT_MAX);
+
+    printf("long long           : min = %lld, max = %lld\n", LLONG_MIN, LLONG_MAX);
+    printf("unsigned long long  : min = 0, max = %llu\n", ULLONG_MAX);
+
+    puts("");
+    puts("=== Floating-point types: min / max ===");
+
+    printf("float               : min = %e, max = %e\n", FLT_MIN, FLT_MAX);
+    printf("double              : min = %e, max = %e\n", DBL_MIN, DBL_MAX);
+
+    puts("");
+    puts("=== Answers for integer types ===");
+
+    puts("1) Number of values:");
+    puts("   Unsigned N-bit type can store 2^N different values.");
+    puts("   Signed N-bit type also stores 2^N different values.");
+    puts("   Yes, this is directly related to N: one more bit doubles the number of possible bit patterns.");
+
+    puts("");
+    puts("2) Unsigned N-bit representation:");
+    puts("   Every integer x in [0, 2^N) has its own N-bit representation.");
+    puts("   Every sequence of N bits can be interpreted as an unsigned integer in [0, 2^N).");
+    puts("   The correspondence is one-to-one.");
+
+    puts("");
+    puts("3) Signed N-bit representation:");
+    puts("   In two's complement, every integer x in [-2^(N-1), 2^(N-1)) has its own N-bit representation.");
+    puts("   Every sequence of N bits can be interpreted as exactly one signed integer from this range.");
+    puts("   The correspondence is one-to-one.");
+
+    puts("");
+    puts("=== Answers for float / double ===");
+
+    puts("1) Does every real x in [min, max] have its own IEEE 754 representation?");
+    puts("   No. Real numbers are infinite, but float/double representations are finite.");
+    puts("   Therefore only some real numbers are represented exactly.");
+
+    puts("");
+    puts("2) Is the correspondence between real numbers and IEEE 754 representations one-to-one?");
+    puts("   No, not for all real numbers. Many real numbers do not have exact representation.");
+    puts("   But each stored finite machine value has its own bit representation.");
+
+    puts("");
+    puts("3) Can every 32-bit or 64-bit sequence be interpreted as float/double?");
+    puts("   Yes. Every such bit sequence can be interpreted as a float/double value.");
+    puts("   But the result is not always a number: there are +infinity, -infinity and NaN.");
+[12.03.2026 14:20] Даня(мелкий): puts("");
+    puts("4) Which set of numeric values is larger?");
+    puts("   Numeric 32-bit integer values are more numerous than numeric float values.");
+    puts("   Numeric 64-bit integer values are more numerous than numeric double values.");
+    puts("   Reason: among float/double bit patterns there are infinities, NaNs, and two zeros (+0 and -0).");
+
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.4
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.4 - print16(void*)");
+    puts("==================================================");
+
+    unsigned short us_min = 0;
+    unsigned short us_max = USHRT_MAX;
+
+    short s_min = SHRT_MIN;
+    short s_max = SHRT_MAX;
+
+    short x16 = 5;
+    short y16 = -5;
+    short a16 = 1;
+    short b16 = 2;
+
+    puts("name     HEX  binary              unsigned signed");
+
+    printf("%-7s", "us_min");
+    print16(&us_min);
+    putchar('\n');
+
+    printf("%-7s", "us_max");
+    print16(&us_max);
+    putchar('\n');
+
+    printf("%-7s", "s_min");
+    print16(&s_min);
+    putchar('\n');
+
+    printf("%-7s", "s_max");
+    print16(&s_max);
+    putchar('\n');
+
+    printf("%-7s", "x");
+    print16(&x16);
+    putchar('\n');
+
+    printf("%-7s", "y");
+    print16(&y16);
+    putchar('\n');
+
+    printf("%-7s", "a");
+    print16(&a16);
+    putchar('\n');
+
+    printf("%-7s", "b");
+    print16(&b16);
+    putchar('\n');
+
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.5
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.5 - print32(void*)");
+    puts("==================================================");
+
+    unsigned u_min = 0u;
+    unsigned u_max = UINT_MAX;
+
+    int s32_min = INT_MIN;
+    int s32_max = INT_MAX;
+
+    int x32 = 5;
+    int y32 = -5;
+    int a32 = 1;
+    int b32 = 2;
+    int c32 = 12345689;
+    int d32 = 123456891;
+
+    float fx32 = 5.0f;
+    float fy32 = -5.0f;
+    float fa32 = 1.0f;
+    float fb32 = 2.0f;
+    float fc32 = 12345689.0f;
+    float fd32 = 123456891.0f;
+
+    unsigned plus_zero_bits    = 0x00000000u;
+    unsigned minus_zero_bits   = 0x80000000u;
+    unsigned min_denorm_bits   = 0x00000001u;
+    unsigned nan_bits          = 0x7FC00000u;
+    unsigned min_norm_bits     = 0x00800000u;
+    unsigned before_plus2_bits = 0x3FFFFFFFu;
+    unsigned max_norm_bits     = 0x7F7FFFFFu;
+    unsigned plus_inf_bits     = 0x7F800000u;
+
+    puts("name              HEX      binary                               unsigned        signed  float-hex           float-exp           float-fix");
+
+    printf("%-18s", "u_min");
+    print32(&u_min);
+    putchar('\n');
+
+    printf("%-18s", "u_max");
+    print32(&u_max);
+    putchar('\n');
+
+    printf("%-18s", "s_min");
+    print32(&s32_min);
+    putchar('\n');
+
+    printf("%-18s", "s_max");
+    print32(&s32_max);
+    putchar('\n');
+
+    printf("%-18s", "x (int)");
+    print32(&x32);
+    putchar('\n');
+
+    printf("%-18s", "y (int)");
+    print32(&y32);
+    putchar('\n');
+
+    printf("%-18s", "a (int)");
+    print32(&a32);
+    putchar('\n');
+
+    printf("%-18s", "b (int)");
+    print32(&b32);
+    putchar('\n');
+
+    printf("%-18s", "c (int)");
+    print32(&c32);
+    putchar('\n');
+
+    printf("%-18s", "d (int)");
+    print32(&d32);
+    putchar('\n');
+
+    puts("");
+
+    printf("%-18s", "x (float)");
+    print32(&fx32);
+    putchar('\n');
+
+    printf("%-18s", "y (float)");
+    print32(&fy32);
+    putchar('\n');
+
+    printf("%-18s", "a (float)");
+    print32(&fa32);
+    putchar('\n');
+
+    printf("%-18s", "b (float)");
+    print32(&fb32);
+    putchar('\n');
+
+    printf("%-18s", "c (float)");
+    print32(&fc32);
+    putchar('\n');
+
+    printf("%-18s", "d (float)");
+    print32(&fd32);
+    putchar('\n');
+
+    puts("");
+
+    printf("%-18s", "+0");
+    print32(&plus_zero_bits);
+    putchar('\n');
+
+    printf("%-18s", "-0");
+    print32(&minus_zero_bits);
+    putchar('\n');
+[12.03.2026 14:20] Даня(мелкий): printf("%-18s", "min denorm +");
+    print32(&min_denorm_bits);
+    putchar('\n');
+
+    printf("%-18s", "NaN");
+    print32(&nan_bits);
+    putchar('\n');
+
+    printf("%-18s", "min norm +");
+    print32(&min_norm_bits);
+    putchar('\n');
+
+    printf("%-18s", "prev before +2");
+    print32(&before_plus2_bits);
+    putchar('\n');
+
+    printf("%-18s", "max norm +");
+    print32(&max_norm_bits);
+    putchar('\n');
+
+    printf("%-18s", "+infinity");
+    print32(&plus_inf_bits);
+    putchar('\n');
+
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.6
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.6 - print64(void*)");
+    puts("==================================================");
+
+    unsigned long long ex1 = 13ULL;
+    unsigned long long ex2 = 0x8000000000000000ULL;
+
+    long long x64 = 5LL;
+    long long a64 = 1LL;
+
+    double fx64 = 5.0;
+    double fa64 = 1.0;
+
+    puts("13:");
+    print64(&ex1);
+    puts("");
+
+    puts("0x8000000000000000:");
+    print64(&ex2);
+    puts("");
+
+    puts("x (long long = 5):");
+    print64(&x64);
+    puts("");
+
+    puts("a (long long = 1):");
+    print64(&a64);
+    puts("");
+
+    puts("x (double = 5.0):");
+    print64(&fx64);
+    puts("");
+
+    puts("a (double = 1.0):");
+    print64(&fa64);
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.7
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.7 - printDump(void*, size_t)");
+    puts("==================================================");
+
+    int x_int = 5;
+    double x_double = 5.0;
+
+    char s1[] = "abc012";
+    char s2[] = "абв012";
+
+    wchar_t ws1[] = L"abc012";
+    wchar_t ws2[] = L"абв012";
+
+    puts("=== int x = 5 ===");
+    print32(&x_int);
+    putchar('\n');
+    puts("dump:");
+    printDump(&x_int, sizeof(x_int));
+
+    if (*((unsigned char *)&x_int) == 0x05)
+        puts("Byte order in words on this platform: Little-Endian.");
+    else
+        puts("Byte order in words on this platform: Big-Endian.");
+
+    puts("");
+    puts("=== double x = 5.0 ===");
+    print64(&x_double);
+    putchar('\n');
+    puts("dump:");
+    printDump(&x_double, sizeof(x_double));
+
+    puts("");
+    puts("=== char s1[] = \"abc012\" ===");
+    puts("dump:");
+    printDump(s1, sizeof(s1));
+
+    puts("");
+    puts("=== char s2[] = \"абв012\" ===");
+    puts("dump:");
+    printDump(s2, sizeof(s2));
+
+    puts("");
+    puts("=== wchar_t ws1[] = L\"abc012\" ===");
+    puts("dump:");
+    printDump(ws1, sizeof(ws1));
+
+    puts("");
+    puts("=== wchar_t ws2[] = L\"абв012\" ===");
+    puts("dump:");
+    printDump(ws2, sizeof(ws2));
+
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.8
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.8 - c16to32(void*)");
+    puts("==================================================");
+
+    short m = 21;
+    short n = -37;
+
+    puts("m:");
+    c16to32(&m);
+    puts("");
+
+    puts("n:");
+    c16to32(&n);
+    puts("");
+
+    // -------------------------------------------------
+    // Л2.9
+    // -------------------------------------------------
+    puts("==================================================");
+    puts("L2.9 - ab16(void*)");
+    puts("==================================================");
+
+    puts("m:");
+    ab16(&m);
+    puts("");
+
+    puts("n:");
+    ab16(&n);
+    puts("");
+
+    puts("Total number of operations described in task L2.9: 12.");
+
     return 0;
 }
+
+`
