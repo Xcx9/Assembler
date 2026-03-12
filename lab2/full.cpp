@@ -1,4 +1,3 @@
-[12.03.2026 14:20] Даня(мелкий): `
 #include <stdio.h>
 #include <stddef.h>
 #include <wchar.h>
@@ -728,5 +727,3 @@ int main()
 
     return 0;
 }
-
-`
