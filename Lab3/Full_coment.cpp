@@ -1,8 +1,8 @@
 pro-файл
-QT -= gui                 # Убираем GUI, программа консольная
-CONFIG += console c++17   # Консольный режим и стандарт C++17
-CONFIG -= app_bundle      # Для Windows/Qt это не нужно
-SOURCES += main.cpp       # В проект включён файл main.cpp
+QT -= gui                 // Убираем GUI, программа консольная
+CONFIG += console c++17   // Консольный режим и стандарт C++17
+CONFIG -= app_bundle      // Для Windows/Qt это не нужно
+SOURCES += main.cpp       // В проект включён файл main.cpp
 
 
 #include <cstdio>      // Для printf
